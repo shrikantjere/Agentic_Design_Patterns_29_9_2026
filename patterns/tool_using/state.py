@@ -4,3 +4,5 @@ class AgentState(TypedDict):
     question: str
     expression: str
     result: str
+    answer: str
+    query_type: str
