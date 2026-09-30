@@ -3,6 +3,7 @@
 import streamlit as st
 
 from patterns.planner_executor.graph import build_graph as build_planner_executor_graph
+from patterns.supervisor_worker.graph import build_graph as build_supervisor_worker_graph
 from patterns.tool_using.graph import build_graph as build_tool_using_graph
 
 
@@ -24,11 +25,17 @@ if "tool_graph" not in st.session_state:
 if "planner_graph" not in st.session_state:
     st.session_state.planner_graph = build_planner_executor_graph()
 
+if "supervisor_graph" not in st.session_state:
+    st.session_state.supervisor_graph = build_supervisor_worker_graph()
+
 if "tool_messages" not in st.session_state:
     st.session_state.tool_messages = []
 
 if "planner_messages" not in st.session_state:
     st.session_state.planner_messages = []
+
+if "supervisor_messages" not in st.session_state:
+    st.session_state.supervisor_messages = []
 
 
 # ---------------------------------------------------------------------------
@@ -199,6 +206,107 @@ def render_planner_executor_demo():
             st.rerun()
 
 
+def render_supervisor_worker_demo():
+    st.title("👥 Supervisor-Worker Agentic AI Workflow")
+    st.markdown(
+        """
+        This workflow uses a **supervisor** to route requests to the right specialist worker.
+
+        - **Supervisor** decides whether the request is *math* or *leave*.
+        - **Math agent** solves arithmetic and numeric questions.
+        - **Leave agent** checks employee leave balances from a database.
+
+        ---
+        """
+    )
+
+    for msg in st.session_state.supervisor_messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if "details" in msg:
+                with st.expander("🔍 Workflow details"):
+                    st.json(msg["details"])
+
+    if prompt := st.chat_input(
+        "Ask a math or leave-balance question…",
+        key="supervisor_input",
+    ):
+        st.session_state.supervisor_messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Routing request…"):
+                result = st.session_state.supervisor_graph.invoke({"query": prompt})
+
+            worker = result.get("worker", "unknown")
+            output = result.get("result", "")
+            expression = result.get("expression", "")
+            employee_name = result.get("employee_name", "")
+            leave_balance = result.get("leave_balance", "")
+
+            if worker == "math":
+                st.markdown(f"**Selected worker:** Math Agent")
+                st.markdown(f"**Result:** {output}")
+                with st.expander("🔍 Workflow details"):
+                    st.json(
+                        {
+                            "Worker": "math",
+                            "Expression": expression,
+                            "Result": output,
+                        }
+                    )
+                st.session_state.supervisor_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": output,
+                        "details": {
+                            "Worker": "math",
+                            "Expression": expression,
+                            "Result": output,
+                        },
+                    }
+                )
+            else:
+                st.markdown(f"**Selected worker:** Leave Agent")
+                st.markdown(f"**Result:** {output}")
+                with st.expander("🔍 Workflow details"):
+                    st.json(
+                        {
+                            "Worker": "leave",
+                            "Employee": employee_name,
+                            "Leave Balance": leave_balance,
+                            "Result": output,
+                        }
+                    )
+                st.session_state.supervisor_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": output,
+                        "details": {
+                            "Worker": "leave",
+                            "Employee": employee_name,
+                            "Leave Balance": leave_balance,
+                            "Result": output,
+                        },
+                    }
+                )
+
+    with st.sidebar:
+        st.header("💡 Supervisor-Worker examples")
+        st.markdown(
+            """
+            - What is the square of the average of 10 and 5?
+            - What is the leave balance for Alice?
+            - Calculate 25% of 200.
+            - What is Bob's leave balance?
+            """
+        )
+        if st.button("🗑️ Clear supervisor chat", key="clear_supervisor_chat"):
+            st.session_state.supervisor_messages = []
+            st.rerun()
+
+
 # ---------------------------------------------------------------------------
 # App entry point
 # ---------------------------------------------------------------------------
@@ -206,14 +314,16 @@ with st.sidebar:
     st.header("🏗️ Pattern selector")
     demo_choice = st.radio(
         "Choose a demo",
-        ["Tool-Using Agent", "Planner-Executor Agent"],
+        ["Tool-Using Agent", "Planner-Executor Agent", "Supervisor-Worker Agent"],
         index=0,
     )
 
 if demo_choice == "Tool-Using Agent":
     render_tool_using_demo()
-else:
+elif demo_choice == "Planner-Executor Agent":
     render_planner_executor_demo()
+else:
+    render_supervisor_worker_demo()
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Demonstration app for multiple agentic AI workflow patterns.")

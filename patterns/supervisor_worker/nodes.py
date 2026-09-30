@@ -8,28 +8,23 @@ llm = get_llm()
 
 def supervisor(state: SupervisorWorkerState):
     query = state["query"]
-
     prompt = f"""
     Decide which worker should handle this request.
-
     Return ONLY one word:
     - math
     - leave
-
     Use:
     - math → calculations, percentages, averages, totals
     - leave → leave balance, vacation, sick leave, PTO
-
     Request: {query}
     """
-
     worker = llm.invoke(prompt).content.strip().lower()
 
     if "leave" in worker:
         worker = "leave"
     else:
         worker = "math"
-
+    
     print(f"[Supervisor] Worker selected: {worker}")
 
     return {"worker": worker}
@@ -37,7 +32,6 @@ def supervisor(state: SupervisorWorkerState):
 
 def math_agent(state: SupervisorWorkerState):
     query = state["query"]
-
     prompt = f"""
     Convert this request into a Python arithmetic expression.
 
@@ -47,7 +41,6 @@ def math_agent(state: SupervisorWorkerState):
     """
 
     expression = llm.invoke(prompt).content.strip()
-
     print(f"[Math Agent] Expression: {expression}")
 
     try:
@@ -63,7 +56,6 @@ def math_agent(state: SupervisorWorkerState):
 
 def leaves_balance(state: SupervisorWorkerState):
     query = state["query"]
-
     prompt = f"""
     Extract the employee name from this request.
 

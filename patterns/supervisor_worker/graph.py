@@ -15,7 +15,6 @@ def build_graph():
     graph.add_node("supervisor", supervisor)
     graph.add_node("math_agent", math_agent)
     graph.add_node("leaves_balance", leaves_balance)
-
     graph.set_entry_point("supervisor")
 
     graph.add_conditional_edges(
