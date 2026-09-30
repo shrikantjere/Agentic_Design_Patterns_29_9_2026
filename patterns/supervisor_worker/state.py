@@ -8,3 +8,4 @@ class SupervisorWorkerState(TypedDict, total=False):
     result: str
     employee_name: str
     leave_balance: str
+    general_answer: str

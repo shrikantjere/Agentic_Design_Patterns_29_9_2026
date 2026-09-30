@@ -267,7 +267,7 @@ def render_supervisor_worker_demo():
                         },
                     }
                 )
-            else:
+            elif worker == "leave":
                 st.markdown(f"**Selected worker:** Leave Agent")
                 st.markdown(f"**Result:** {output}")
                 with st.expander("🔍 Workflow details"):
@@ -291,6 +291,26 @@ def render_supervisor_worker_demo():
                         },
                     }
                 )
+            else:
+                st.markdown(f"**Selected worker:** General Agent")
+                st.markdown(f"**Answer:** {output}")
+                with st.expander("🔍 Workflow details"):
+                    st.json(
+                        {
+                            "Worker": "general",
+                            "Answer": output,
+                        }
+                    )
+                st.session_state.supervisor_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": output,
+                        "details": {
+                            "Worker": "general",
+                            "Answer": output,
+                        },
+                    }
+                )
 
     with st.sidebar:
         st.header("💡 Supervisor-Worker examples")
@@ -300,6 +320,9 @@ def render_supervisor_worker_demo():
             - What is the leave balance for Alice?
             - Calculate 25% of 200.
             - What is Bob's leave balance?
+            - Define AI
+            - Explain machine learning in simple words
+            - Who was Albert Einstein?
             """
         )
         if st.button("🗑️ Clear supervisor chat", key="clear_supervisor_chat"):
