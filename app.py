@@ -1,131 +1,219 @@
-"""
-Streamlit frontend for the Tool-Using Agentic AI Workflow.
-
-Provides a chat interface that handles both math expressions
-and general questions through a two-agent pipeline with
-automatic fallback.
-"""
+"""Streamlit frontend for the agentic AI design patterns demo."""
 
 import streamlit as st
-from patterns.tool_using.graph import build_graph
+
+from patterns.planner_executor.graph import build_graph as build_planner_executor_graph
+from patterns.tool_using.graph import build_graph as build_tool_using_graph
+
 
 # ---------------------------------------------------------------------------
 # Page configuration
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Tool-Using Agent",
+    page_title="Agentic AI Pattern Demo",
     page_icon="🤖",
-    layout="centered",
+    layout="wide",
 )
 
 # ---------------------------------------------------------------------------
-# Title & description
+# Session state
 # ---------------------------------------------------------------------------
-st.title("🤖 Tool-Using Agentic AI Workflow")
-st.markdown(
-    """
-    This workflow uses **two specialised agents** behind the scenes:
+if "tool_graph" not in st.session_state:
+    st.session_state.tool_graph = build_tool_using_graph()
 
-    1. **Classifier** – decides whether your question is *math* or *general*.
-    2. **Reasoning Agent** – converts math questions into Python expressions.
-    3. **Math Agent** – evaluates the expression safely.
-    4. **General Agent** – answers general questions using an LLM.
+if "planner_graph" not in st.session_state:
+    st.session_state.planner_graph = build_planner_executor_graph()
 
-    ---
-    """
-)
+if "tool_messages" not in st.session_state:
+    st.session_state.tool_messages = []
 
-# ---------------------------------------------------------------------------
-# Initialise session state
-# ---------------------------------------------------------------------------
-if "graph" not in st.session_state:
-    st.session_state.graph = build_graph()
+if "planner_messages" not in st.session_state:
+    st.session_state.planner_messages = []
 
-if "messages" not in st.session_state:
-    st.session_state.messages = []
 
 # ---------------------------------------------------------------------------
-# Display chat history
+# Demo renderers
 # ---------------------------------------------------------------------------
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        if "details" in msg:
-            with st.expander("🔍 Workflow details"):
-                st.json(msg["details"])
+def render_tool_using_demo():
+    st.title("🤖 Tool-Using Agentic AI Workflow")
+    st.markdown(
+        """
+        This workflow uses **two specialised agents** behind the scenes:
 
-# ---------------------------------------------------------------------------
-# Chat input
-# ---------------------------------------------------------------------------
-if prompt := st.chat_input("Ask a math question or anything else…"):
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+        1. **Classifier** – decides whether your question is *math* or *general*.
+        2. **Reasoning Agent** – converts math questions into Python expressions.
+        3. **Math Agent** – evaluates the expression safely.
+        4. **General Agent** – answers general questions using an LLM.
 
-    # Run the agent workflow
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking…"):
-            result = st.session_state.graph.invoke({"question": prompt})
+        ---
+        """
+    )
 
-        query_type = result.get("query_type", "unknown")
+    for msg in st.session_state.tool_messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if "details" in msg:
+                with st.expander("🔍 Workflow details"):
+                    st.json(msg["details"])
 
-        if query_type == "math":
-            expression = result.get("expression", "")
-            answer = result.get("result", "")
-            st.markdown(f"**Answer:** {answer}")
-            with st.expander("🔍 Workflow details"):
-                st.json(
+    if prompt := st.chat_input("Ask a math question or anything else…", key="tool_input"):
+        st.session_state.tool_messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Thinking…"):
+                result = st.session_state.tool_graph.invoke({"question": prompt})
+
+            query_type = result.get("query_type", "unknown")
+
+            if query_type == "math":
+                expression = result.get("expression", "")
+                answer = result.get("result", "")
+                st.markdown(f"**Answer:** {answer}")
+                with st.expander("🔍 Workflow details"):
+                    st.json(
+                        {
+                            "Query Type": "Math",
+                            "Expression": expression,
+                            "Result": answer,
+                        }
+                    )
+                st.session_state.tool_messages.append(
                     {
-                        "Query Type": "Math",
-                        "Expression": expression,
-                        "Result": answer,
+                        "role": "assistant",
+                        "content": answer,
+                        "details": {
+                            "Query Type": "Math",
+                            "Expression": expression,
+                            "Result": answer,
+                        },
                     }
                 )
-            st.session_state.messages.append(
+            else:
+                answer = result.get("answer", "")
+                st.markdown(f"**Answer:** {answer}")
+                with st.expander("🔍 Workflow details"):
+                    st.json({"Query Type": "General", "Answer": answer})
+                st.session_state.tool_messages.append(
+                    {
+                        "role": "assistant",
+                        "content": answer,
+                        "details": {"Query Type": "General", "Answer": answer},
+                    }
+                )
+
+    with st.sidebar:
+        st.header("💡 Tool-Using examples")
+        st.markdown(
+            """
+            **Math questions:**
+            - What is 15 + 27?
+            - What is the average of 100 and 200?
+            - Compute (12 + 8) * 5
+            - What is the square of 9?
+
+            **General questions:**
+            - Define AI
+            - What is machine learning?
+            - Explain the theory of relativity
+            - Who wrote Romeo and Juliet?
+            """
+        )
+        if st.button("🗑️ Clear tool chat", key="clear_tool_chat"):
+            st.session_state.tool_messages = []
+            st.rerun()
+
+
+def render_planner_executor_demo():
+    st.title("🧠 Planner-Executor Agentic AI Workflow")
+    st.markdown(
+        """
+        This workflow follows a **manager → worker** pattern:
+
+        1. **Planner** breaks the task into a short action plan.
+        2. **Executor** takes each step and produces the final answer.
+
+        The system is designed for tasks that need a clear step-by-step response.
+
+        ---
+        """
+    )
+
+    for msg in st.session_state.planner_messages:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+            if "details" in msg:
+                with st.expander("🔍 Workflow details"):
+                    st.json(msg["details"])
+
+    if prompt := st.chat_input(
+        "Describe a task to plan and execute…",
+        key="planner_input",
+    ):
+        st.session_state.planner_messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Planning and executing…"):
+                result = st.session_state.planner_graph.invoke({"task": prompt})
+
+            plan = [step.strip() for step in result.get("plan", []) if str(step).strip()]
+            output = result.get("output", "")
+
+            st.markdown("### Plan")
+            for step in plan:
+                st.markdown(f"- {step.lstrip('-').strip()}")
+
+            st.markdown("### Execution result")
+            st.markdown(output)
+
+            with st.expander("🔍 Workflow details"):
+                st.json({"Task": prompt, "Plan": plan, "Output": output})
+
+            st.session_state.planner_messages.append(
                 {
                     "role": "assistant",
-                    "content": answer,
+                    "content": output,
                     "details": {
-                        "Query Type": "Math",
-                        "Expression": expression,
-                        "Result": answer,
+                        "Task": prompt,
+                        "Plan": plan,
+                        "Output": output,
                     },
                 }
             )
-        else:
-            answer = result.get("answer", "")
-            st.markdown(f"**Answer:** {answer}")
-            with st.expander("🔍 Workflow details"):
-                st.json({"Query Type": "General", "Answer": answer})
-            st.session_state.messages.append(
-                {
-                    "role": "assistant",
-                    "content": answer,
-                    "details": {"Query Type": "General", "Answer": answer},
-                }
-            )
+
+    with st.sidebar:
+        st.header("💡 Planner-Executor examples")
+        st.markdown(
+            """
+            - Create a 3-step plan for launching a chatbot product.
+            - Plan how to organize a weekend study schedule.
+            - Break down the steps to write a technical blog post.
+            - Create a plan for launching a new AI startup.
+            """
+        )
+        if st.button("🗑️ Clear planner chat", key="clear_planner_chat"):
+            st.session_state.planner_messages = []
+            st.rerun()
+
 
 # ---------------------------------------------------------------------------
-# Sidebar – example prompts
+# App entry point
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.header("💡 Example prompts")
-    st.markdown(
-        """
-        **Math questions:**
-        - What is 15 + 27?
-        - What is the average of 100 and 200?
-        - Compute (12 + 8) * 5
-        - What is the square of 9?
-
-        **General questions:**
-        - Define AI
-        - What is machine learning?
-        - Explain the theory of relativity
-        - Who wrote Romeo and Juliet?
-        """
+    st.header("🏗️ Pattern selector")
+    demo_choice = st.radio(
+        "Choose a demo",
+        ["Tool-Using Agent", "Planner-Executor Agent"],
+        index=0,
     )
-    if st.button("🗑️ Clear chat"):
-        st.session_state.messages = []
-        st.rerun()
+
+if demo_choice == "Tool-Using Agent":
+    render_tool_using_demo()
+else:
+    render_planner_executor_demo()
+
+st.sidebar.markdown("---")
+st.sidebar.caption("Demonstration app for multiple agentic AI workflow patterns.")
